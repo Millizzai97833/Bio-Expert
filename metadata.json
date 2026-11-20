@@ -1,0 +1,8 @@
+{
+  "name": "Expert Biology",
+  "description": "Comprehensive academic biology dictionary, virology research database, interactive anatomical diagrams, lecture notes, quizzes, and Bio Expert scholarly assistant built by Imran Khan (Shah Saib).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
