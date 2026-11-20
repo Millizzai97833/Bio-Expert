@@ -1,9 +1,9 @@
-# Expert Biology — GitHub Build & Deployment Requirements
+# Expert Biology — GitHub Build & Android APK Requirements
 
-**Application:** Expert Biology (Academic Biology Dictionary, Virology Research Database, Interactive Diagrams, Lecture Atlas, Quizzes, and Bio Expert AI Assistant)  
+**Application:** Expert Biology (Academic Biology Dictionary, Virology Research Database, Interactive Diagrams, Lecture Atlas, Quizzes, and Bio Expert Assistant)  
 **Author:** Imran Khan (Shah Saib) — Biology Teacher, Graduate from Russia  
 
-This document specifies all runtime prerequisites, dependencies, environment configuration, and build steps required to clone, verify, and deploy **Expert Biology** via GitHub.
+This document specifies all runtime prerequisites, dependencies, environment configuration, and GitHub Actions workflows required to build both the **web application** and the **Android APK** from GitHub.
 
 ---
 
@@ -12,37 +12,37 @@ This document specifies all runtime prerequisites, dependencies, environment con
 | Requirement | Minimum Version | Recommended | Notes |
 | :--- | :--- | :--- | :--- |
 | **Node.js** | `>= 20.11.0` | `22.x LTS` | Required for native ESM and TypeScript execution |
-| **npm** | `>= 10.0.0` | `10.x+` | Package management and lockfile resolution |
-| **Git** | `>= 2.38.0` | Latest | Source control and GitHub Actions triggers |
-| **Port** | `3000` | `3000` | Configurable via `PORT` environment variable |
+| **npm** | `>= 10.0.0` | `10.x+` | Package management and dependency resolution |
+| **Java JDK** | `21` | `21 (Temurin)` | Required by Capacitor 8 / Android Gradle Plugin |
+| **Android SDK** | API `35` / `36` | Installed in CI | Automatically provisioned by `android-actions/setup-android` |
+| **Port (Web/API)** | `3000` | `3000` | Configurable via `PORT` environment variable |
 
 ---
 
 ## 2. Core Dependencies (`package.json`)
 
-### Production Dependencies
+### Web, Server & Mobile Packaging Dependencies
 - `react` (`^19.0.1`) & `react-dom` (`^19.0.1`) — UI rendering engine
+- `@capacitor/core`, `@capacitor/cli`, `@capacitor/android` (`^8.x`) — Native Android WebView shell & Gradle project generator
 - `express` (`^4.21.2`) — Backend HTTP server & static asset serving
-- `@google/genai` (`^2.29.1` or `latest`) — Server-side Gemini API SDK powering **Bio Expert**
+- `@google/genai` (`^3.6.1`) — Server-side Gemini API SDK powering **Bio Expert Assistant**
 - `lucide-react` (`^0.546.0`) — Vector interface iconography
-- `motion` (`^12.23.24`) — Smooth compositor-only UI transitions
+- `motion` (`^12.23.24`) — Smooth UI transitions
 - `dotenv` (`^17.2.3`) — Environment variable loading
 - `vite` (`^8.3.0`), `@vitejs/plugin-react` (`^6.1.1`), `@tailwindcss/vite` (`^4.3.3`) — Bundler & Tailwind CSS v4 compiler
 
 ### Development Dependencies
-- `typescript` (`^7.0.2`) — Static type verification
-- `tsx` (`^4.21.0`) — Development TypeScript server runner
+- `typescript` (`^7.0.2`), `tsx` (`^4.21.0`)
 - `tailwindcss` (`^4.3.3`), `autoprefixer` (`^10.4.21`), `esbuild` (`^0.25.0`)
 - `@types/node`, `@types/react`, `@types/react-dom`, `@types/express`
 
 ---
 
-## 3. Environment Variables
+## 3. Environment & GitHub Repository Configuration
 
-Create a `.env` file locally (never commit `.env` to GitHub) or configure repository secrets in your hosting provider / GitHub Actions:
-
+### Web & Server `.env`
 ```env
-# Required for Bio Expert AI scholarly assistant (/api/bio-expert)
+# Required for Bio Expert Assistant (/api/bio-expert)
 GEMINI_API_KEY="your_gemini_api_key_here"
 
 # Optional: Server port (defaults to 3000)
@@ -52,75 +52,41 @@ PORT=3000
 NODE_ENV=production
 ```
 
+### Optional GitHub Variables / Secrets for Android APK
+1. **Bio Expert Assistant inside APK (Optional)**:
+   - Set a GitHub Actions **Variable** named `VITE_API_BASE_URL` pointing to your deployed Express backend URL (for example, `https://your-service.run.app`).
+   - All offline study modules (Biology Dictionary, Virology Database, Interactive Diagrams, Lecture Notes, Quizzes, Flashcards, Bookmarks, Night Mode, and Progress Tracker) work 100% offline inside the APK even without a backend URL.
+2. **Signed Release APK (Optional)**:
+   - By default, `.github/workflows/build-apk.yml` builds both a directly installable **Debug APK** (`app-debug.apk`) and an unsigned **Release APK** (`app-release-unsigned.apk`).
+   - If you also want a Play-Store-ready signed release APK, add these optional GitHub Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
 ---
 
 ## 4. Local Setup & Verification Commands
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/<your-username>/expert-biology.git
-cd expert-biology
+# 1. Install dependencies
+npm install
 
-# 2. Install dependencies cleanly
-npm ci
-
-# 3. Type-check the codebase
+# 2. Type-check TypeScript
 npm run lint
 
-# 4. Run development server (Express + Vite HMR middleware on port 3000)
-npm run dev
+# 3. Build web assets into dist/ and sync into android/
+npm run android:sync
 
-# 5. Build production frontend bundle into dist/
-npm run build
-
-# 6. Start production server
-NODE_ENV=production npm start
+# 4. Build Debug APK locally (requires JDK 21 & Android SDK)
+cd android && ./gradlew assembleDebug
+# Output: android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
-## 5. GitHub Actions CI Workflow (`.github/workflows/ci.yml`)
+## 5. GitHub Actions APK Build Workflow
 
-To automatically verify TypeScript compilation and Vite production builds on every push or pull request to `main`, create `.github/workflows/ci.yml`:
-
-```yaml
-name: Expert Biology CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build-and-verify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run TypeScript type check
-        run: npm run lint
-
-      - name: Build production bundle
-        run: npm run build
-```
-
----
-
-## 6. Architecture Overview for Contributors
-
-- `server.ts` — Express server handling `/api/bio-expert` (Gemini `gemini-4-hydrogen` with formal academic system instruction) and serving the Vite SPA.
-- `src/data/` — Offline-capable academic datasets (`dictionaryData.ts`, `virusData.ts`, `lecturesData.ts`, `diagramsData.ts`, `quizData.ts`).
-- `src/components/` — Modular views for Dictionary, Virology Research Database, Interactive SVG Diagrams, Lecture Reader, Quiz & Flashcard Runner, Progress Tracker, Bookmarks Manager, and Bio Expert Assistant.
-- `src/assets/images/` — High-resolution scientific atlas plates copied automatically into `dist/` during `vite build`.
+The repository includes `.github/workflows/build-apk.yml`, which triggers automatically on pushes to `main` or manual dispatch (`workflow_dispatch`) from the **Actions** tab on GitHub:
+1. Installs Node.js 22 and Java 21 (Temurin)
+2. Sets up the Android SDK
+3. Runs `npm install` and `npm run lint`
+4. Runs `npm run build` and `npx cap sync android`
+5. Compiles `app-debug.apk` (and `app-release-unsigned.apk` / signed `app-release.apk`) via Gradle
+6. Uploads the compiled `.apk` files under **Artifacts** in the GitHub Actions run summary for direct download onto any Android device.

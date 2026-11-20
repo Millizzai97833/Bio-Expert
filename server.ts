@@ -49,6 +49,17 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
 
+  app.use('/api', (_req: Request, res: Response, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (_req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.get('/api/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', service: 'expert-biology' });
   });

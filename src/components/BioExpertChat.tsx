@@ -127,7 +127,11 @@ export function BioExpertChat({
         .filter((m) => m.id !== 'welcome-scholar')
         .map((m) => ({ role: m.role, text: m.text }));
 
-      const res = await fetch('/api/bio-expert', {
+      const apiBase = (
+        (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
+      ).replace(/\/$/, '');
+
+      const res = await fetch(`${apiBase}/api/bio-expert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages }),
